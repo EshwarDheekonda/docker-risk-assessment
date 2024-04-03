@@ -155,7 +155,7 @@ def apiTesting():
     
     #patterns for finding the phone number
     phone_pattern_1 = '[\d]?[(]{1}[\d]{3}[)]{1}[\s]?[\d]{3}[-\s]{1}[\d]{4}'
-    phone_pattern_2 = '[+]{1}[\d]{2}[\s]{1}[(]?[\d]?[)]?[\d]{2}[\s]{1}[\d]{4}[\s]{1}[\d]{4}'
+    phone_pattern_2 = '[+]{1}[\d]{2}[\s]{1}[(]?[\+]?[)]?[\d]{2}[\s]{1}[\d]{4}[\s]{1}[\d]{4}'
     phone_pattern_3 = '[+]{1}[\d]{2}[\s]{1}[(]?[\d]?[)]?[\d]{3}[\s]{1}[\d]{3}[\s]{1}[\d]{3}'
     phone_pattern_4 = '[\d]{3}[-\s]{1}[\d]{3}[-\s]{1}[\d]{4}'
     phone_pattern = [phone_pattern_1,phone_pattern_2,phone_pattern_3,phone_pattern_4]
@@ -384,8 +384,145 @@ def apiTesting():
             else:
                 dictionary[row['Match term']] = [row['Match Word/Text']]
         #print('dictionary ',dictionary)
-        
-        json_object = json.dumps(dictionary, indent = 2) 
+
+        def calculate_privacy_score(willingness_measure, resolution_power, beta_coefficient):
+            from math import exp
+            privacy_score = 1 / exp(beta_coefficient * (1 - willingness_measure) * resolution_power)
+            return privacy_score
+
+        def calculate_overall_risk_score(pii_attributes, weights, willingness_measures, resolution_powers,
+                                         beta_coefficients):
+            overall_risk_score = 0
+            for attribute in pii_attributes:
+                weight = weights.get(attribute['type'], 0)
+                willingness_measure = willingness_measures.get(attribute['type'], 0)
+                resolution_power = resolution_powers.get(attribute['type'], 0)
+                beta_coefficient = beta_coefficients.get(attribute['type'], 1)
+                privacy_score = calculate_privacy_score(willingness_measure, resolution_power, beta_coefficient)
+                overall_risk_score += weight * privacy_score
+            return overall_risk_score
+
+        # extracted PII data
+
+        pii_attributes = set()
+        pii_attributes.update(dictionary.keys())
+        pii_attributes = list(pii_attributes)
+
+        #pii_attributes = list(dictionary.keys())
+
+
+            # Define weights, willingness_measures, resolution_powers, beta_coefficients for PII attributes
+            # These should be replaced with your actual data based on the documentation provided
+        weights = {
+                'Name': 1,
+                'Address': 1,
+                'Gender': 1,
+                'Employer': 2,
+                'DoB': 2,
+                'Education': 1,
+                'Birth Place': 2,
+                'Personal Cell': 0.5,
+                'Email': 0.1,
+                'Business Phone': 0.1,
+                'Facebook Account': 1,
+                'Twitter Account': 0.1,
+                'Instagram Account': 0.1,
+                'DDL': 2,
+                'Passport #': 2,
+                'Credit Card': 2,
+                'SSN': 10
+        }
+        willingness_measures = {
+                'Name': 1.0,  # Name is often publicly shared.
+                'Address': 0.1,  # Address is less commonly shared due to privacy concerns.
+                'Birth Place': 0.2,
+                'DoB': 0.83,  # Date of Birth may be shared on social platforms.
+                'Personal Cell': 0.16,  # Personal cell numbers are usually shared with reservations.
+                'Gender': 0.98,  # Gender is often shared on social profiles.
+                'Employer': 0.5,  # Details about one's employer can be commonly found on professional networks.
+                'Education': 0.8,  # Education details are often listed on social and professional networks.
+                'Email': 0.7,  # Email addresses are frequently shared for contact purposes.
+                'Business Phone': 0.4,
+                # Business phone numbers are often available but less willingly shared than emails.
+                'Facebook Account': 0.9,  # Social media accounts are typically public.
+                'Twitter Account': 0.9,
+                'Instagram Account': 0.9,
+                'DDL': 0.2,  # Driver's license details are sensitive and less frequently shared.
+                'Passport #': 0.05,  # Passport numbers are highly sensitive and rarely shared.
+                'Credit Card': 0.02,
+                # Credit card details are highly sensitive and shared only in trusted transactions.
+                'SSN': 0.01  # Social Security Numbers are among the most sensitive PII and rarely shared.
+        }
+
+        resolution_powers = {
+            'Name': 0.1,  # Common names have lower resolution power.
+            'Address': 0.3,  # Addresses can be shared by multiple individuals (e.g., families).
+            'DoB': 0.7,  # Dates of birth can be unique but may also be shared by others.
+            'Personal Cell': 0.9,  # Personal cell numbers are typically unique to individuals.
+            'Email': 0.95,  # Email addresses are unique identifiers.
+            'Business Phone': 0.4,  # Business phone numbers might be shared by multiple employees.
+            'Facebook Account': 0.8,  # Social media handles are often unique.
+            'Twitter Account': 0.8,
+            'Instagram Account': 0.8,
+            'DDL': 1.0,  # Driver's license numbers are unique identifiers.
+            'Passport #': 1.0,  # Passport numbers are unique to individuals.
+            'Credit Card': 1.0,  # Credit card numbers are unique identifiers.
+            'SSN': 1.0,  # Social Security Numbers are unique to each individual.
+            'Gender': 0.1,  # Gender itself is not a unique identifier.
+            'Employer': 0.2,  # Many individuals can have the same employer.
+            'Education': 0.3,  # Education information may not uniquely identify an individual.
+            'Birth Place': 0.5  # Birth places could be shared by many individuals, thus lower than 1.
+        }
+        beta_coefficients = {
+            'Name': 1,  # Direct influence of willingness and resolution.
+            'Address': 1,
+            'DoB': 1,
+            'Personal Cell': 1,
+            'Email': 1,
+            'Business Phone': 1,
+            'Facebook Account': 1,
+            'Twitter Account': 1,
+            'Instagram Account': 1,
+            'DDL': 1,
+            'Passport #': 1,
+            'Credit Card': 1,
+            'SSN': 1,
+            'Gender': 1,
+            'Employer': 1,
+            'Education': 1,
+            'Birth Place': 1
+            # Additional attributes would also have beta coefficients set here.
+        }
+
+        # Calculating the overall risk score
+        overall_risk_score = calculate_overall_risk_score(
+            pii_attributes,
+            weights,
+            willingness_measures,
+            resolution_powers,
+            beta_coefficients)
+
+        if overall_risk_score <= 2.74:
+            risk_level = 'Very Low'
+        elif 2.74 < overall_risk_score <= 5.48:
+            risk_level = 'Low'
+        elif 5.48 < overall_risk_score <= 6.87:
+            risk_level = 'Medium'
+        elif 6.87 < overall_risk_score <= 12.25:
+            risk_level = 'High'
+        else:
+            risk_level = 'Very High'
+
+        # Creating the JSON response with the risk score
+      # json_response = {
+      #     'pii_data': pii_attributes,
+      #     'risk_score': overall_risk_score,
+      #     'risk_level': risk_level
+      # }
+        dictionary['risk_score'] = overall_risk_score
+        dictionary['risk_level'] = risk_level
+
+        json_object = json.dumps(dictionary, indent = 2)
 
         return json_object
 
@@ -394,6 +531,6 @@ def apiTesting():
             print('Error2: '+url)
 
 if __name__ == "__main__":
-    #port = int(os.environ.get('PORT', 5000))
-    #app.run(host='0.0.0.0', port=port)
-    app.run(debug=False)#,port=2000
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
+    # app.run(debug=False)#,port=2000
