@@ -154,10 +154,10 @@ def apiTesting():
     mod_name = 'Default'
     
     #patterns for finding the phone number
-    phone_pattern_1 = '[\d]?[(]{1}[\d]{3}[)]{1}[\s]?[\d]{3}[-\s]{1}[\d]{4}'
-    phone_pattern_2 = '[+]{1}[\d]{2}[\s]{1}[(]?[\+]?[)]?[\d]{2}[\s]{1}[\d]{4}[\s]{1}[\d]{4}'
-    phone_pattern_3 = '[+]{1}[\d]{2}[\s]{1}[(]?[\d]?[)]?[\d]{3}[\s]{1}[\d]{3}[\s]{1}[\d]{3}'
-    phone_pattern_4 = '[\d]{3}[-\s]{1}[\d]{3}[-\s]{1}[\d]{4}'
+    phone_pattern_1 = r'[\d]?[(]{1}[\d]{3}[)]{1}[\s]?[\d]{3}[-\s]{1}[\d]{4}'
+    phone_pattern_2 = r'[+]{1}[\d]{2}[\s]{1}[(]?[\+]?[)]?[\d]{2}[\s]{1}[\d]{4}[\s]{1}[\d]{4}'
+    phone_pattern_3 = r'[+]{1}[\d]{2}[\s]{1}[(]?[\d]?[)]?[\d]{3}[\s]{1}[\d]{3}[\s]{1}[\d]{3}'
+    phone_pattern_4 = r'[\d]{3}[-\s]{1}[\d]{3}[-\s]{1}[\d]{4}'
     phone_pattern = [phone_pattern_1,phone_pattern_2,phone_pattern_3,phone_pattern_4]
 
 
@@ -213,7 +213,7 @@ def apiTesting():
                             if line.find('https://') > -1:
                                 line = line.replace('https://',' https://')
                         aligned_line = align_sentence(line.strip())
-                        splitted_lines_list = re.split('\. |\.\[', aligned_line)
+                        splitted_lines_list = re.split(r'\. |\.\[', aligned_line)
                         for i in splitted_lines_list:
                             data_into_list.append(i)
                 line_no = 0
@@ -224,7 +224,7 @@ def apiTesting():
                 for line in data_into_list:
                     
                     # Searching for email matches
-                    email_matches = re.finditer('\S+@\S+', line)
+                    email_matches = re.finditer(r'\S+@\S+', line)
                     for m in email_matches:
                         match_count = 0  
                         try:
@@ -385,6 +385,9 @@ def apiTesting():
                 dictionary[row['Match term']] = [row['Match Word/Text']]
         #print('dictionary ',dictionary)
 
+        pii_attributes = list(dictionary.keys())
+
+
         def calculate_privacy_score(willingness_measure, resolution_power, beta_coefficient):
             from math import exp
             privacy_score = 1 / exp(beta_coefficient * (1 - willingness_measure) * resolution_power)
@@ -394,19 +397,20 @@ def apiTesting():
                                          beta_coefficients):
             overall_risk_score = 0
             for attribute in pii_attributes:
-                weight = weights.get(attribute['type'], 0)
-                willingness_measure = willingness_measures.get(attribute['type'], 0)
-                resolution_power = resolution_powers.get(attribute['type'], 0)
-                beta_coefficient = beta_coefficients.get(attribute['type'], 1)
+                weight = weights.get(attribute, 0)
+                willingness_measure = willingness_measures.get(attribute, 0)
+                resolution_power = resolution_powers.get(attribute, 0)
+                beta_coefficient = beta_coefficients.get(attribute, 1)
                 privacy_score = calculate_privacy_score(willingness_measure, resolution_power, beta_coefficient)
                 overall_risk_score += weight * privacy_score
             return overall_risk_score
 
         # extracted PII data
-
+        """
         pii_attributes = set()
         pii_attributes.update(dictionary.keys())
-        pii_attributes = list(pii_attributes)
+        pii_attributes = list(pii_attributes) 
+        """
 
         #pii_attributes = list(dictionary.keys())
 
@@ -416,6 +420,7 @@ def apiTesting():
         weights = {
                 'Name': 1,
                 'Address': 1,
+                'Location':1,
                 'Gender': 1,
                 'Employer': 2,
                 'DoB': 2,
@@ -434,7 +439,8 @@ def apiTesting():
         }
         willingness_measures = {
                 'Name': 1.0,  # Name is often publicly shared.
-                'Address': 0.1,  # Address is less commonly shared due to privacy concerns.
+                'Address': 0.1,
+                'Location':0.1, #Address is less commonly shared due to privacy concerns.
                 'Birth Place': 0.2,
                 'DoB': 0.83,  # Date of Birth may be shared on social platforms.
                 'Personal Cell': 0.16,  # Personal cell numbers are usually shared with reservations.
@@ -456,7 +462,7 @@ def apiTesting():
 
         resolution_powers = {
             'Name': 0.1,  # Common names have lower resolution power.
-            'Address': 0.3,  # Addresses can be shared by multiple individuals (e.g., families).
+            'Address': 0.3,   'Location':0.1,                 # Addresses can be shared by multiple individuals (e.g., families).
             'DoB': 0.7,  # Dates of birth can be unique but may also be shared by others.
             'Personal Cell': 0.9,  # Personal cell numbers are typically unique to individuals.
             'Email': 0.95,  # Email addresses are unique identifiers.
@@ -475,7 +481,7 @@ def apiTesting():
         }
         beta_coefficients = {
             'Name': 1,  # Direct influence of willingness and resolution.
-            'Address': 1,
+            'Address': 1, 'Location':0.1,
             'DoB': 1,
             'Personal Cell': 1,
             'Email': 1,
@@ -522,10 +528,12 @@ def apiTesting():
         dictionary['risk_score'] = overall_risk_score
         dictionary['risk_level'] = risk_level
 
+
+
+
         json_object = json.dumps(dictionary, indent = 2)
 
         return json_object
-
 
     except Exception as e:
             print('Error2: '+url)
